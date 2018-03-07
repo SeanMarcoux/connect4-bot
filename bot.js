@@ -108,10 +108,26 @@ function playMove(msg, message) {
         return;
     }
     board[row][column] = red;
-    displayBoard(msg);
     
     if(detectWin(red)) {
+        displayBoard(msg);
         msg.reply("You won! Congrats!\nResetting the board now.");
+        resetBoard();
+        return;
+    }
+    
+    if(boardFull()) {
+        displayBoard(msg);
+        msg.channel.send("The board is full without a winner. Tie game!\nResetting the board now");
+        resetBoard();
+        return;
+    }
+    
+    playRandomMove(black);
+    displayBoard(msg);
+    
+    if(detectWin(black)) {
+        msg.reply("You lost!\nResetting the board now.");
         resetBoard();
         return;
     }
@@ -121,6 +137,12 @@ function playMove(msg, message) {
         resetBoard();
         return;
     }
+}
+
+function getStringAfterSpace(string) {
+    if(string.indexOf(" ") > 0)
+        return string.slice(string.indexOf(" ")+1, string.length);
+    return null;
 }
 
 function getAvailableRowInColumn(column) {
@@ -178,10 +200,20 @@ function boardFull() {
     return true;
 }
 
-function getStringAfterSpace(string) {
-    if(string.indexOf(" ") > 0)
-        return string.slice(string.indexOf(" ")+1, string.length);
-    return null;
+function playRandomMove(color) {
+    var possibleMoves = [];
+    for(var i = 0; i < 7; i++) {
+        if(getAvailableRowInColumn(i) > -1)
+            possibleMoves.push(i);
+    }
+    
+    var column = possibleMoves[getRandomInt(0, possibleMoves.length-1)];
+    var row = getAvailableRowInColumn(column);
+    board[row][column] = color;
+}
+
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 var key = fs.readFileSync("key.txt");
