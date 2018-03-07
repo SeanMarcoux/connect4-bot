@@ -110,8 +110,17 @@ function playMove(msg, message) {
     board[row][column] = red;
     displayBoard(msg);
     
-    if(boardFull())
-        msg.channel.send("The board is full without a winner. Tie game!");
+    if(detectWin(red)) {
+        msg.reply("You won! Congrats!\nResetting the board now.");
+        resetBoard();
+        return;
+    }
+    
+    if(boardFull()) {
+        msg.channel.send("The board is full without a winner. Tie game!\nResetting the board now");
+        resetBoard();
+        return;
+    }
 }
 
 function getAvailableRowInColumn(column) {
@@ -124,6 +133,41 @@ function getAvailableRowInColumn(column) {
             return i-1;
     }
     return 5;
+}
+
+function detectWin(color) {
+    for(var row = 0; row < board.length; row++) {
+        for(var column = 0; column < board[row].length; column++) {
+            if(board[row][column] === color) {
+                if(detectWinAroundPiece(color, row, column)) {
+                    return true;
+                }
+            }
+        }
+    }
+}
+
+function detectWinAroundPiece(color, row, column) {
+    if(row >= 3) {
+        //Detect a win down a column
+        if(board[row][column] === color && board[row-1][column] === color && board[row-2][column] === color && board[row-3][column] === color)
+            return true;
+        //Detect a win down a diagonal
+        if(column >= 3) {
+            if(board[row][column] === color && board[row-1][column-1] === color && board[row-2][column-2] === color && board[row-3][column-3] == color)
+                return true;
+        }
+        //Detect win down other diagonal
+        if(column <= 3) {
+            if(board[row][column] === color && board[row-1][column+1] === color && board[row-2][column+2] === color && board[row-3][column+3] == color)
+                return true;
+        }
+    }
+    //Detect a win along a row
+    if(column >=3) {
+        if(board[row][column] === color && board[row][column-1] === color && board[row][column-2] === color && board[row][column-3] === color)
+            return true;
+    }
 }
 
 function boardFull() {
