@@ -7,6 +7,10 @@ var blank = "⚪";
 var red = "🔴";
 var black = "⚫";
 
+var player1;
+var player2;
+var nextPlayer;
+
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
     client.user.setActivity("Connect 4");
@@ -51,8 +55,12 @@ function reactToCommands(msg, message)
     else if(message.startsWith("?help")) {
         help(msg);
     }
+    else if(message.startsWith("?newgame ")) {
+        newPlayerGame(msg, message);
+    }
     else if(message.startsWith("?newgame")) {
-        newGame(msg);
+        player1 = msg.author.id;
+        newGame(msg, msg.author.username, "the AI");
     }
     else if(message.startsWith("?play ")) {
         playMove(msg, message);
@@ -65,14 +73,37 @@ function reactToCommands(msg, message)
 function help(msg) {
     msg.reply("The following commands are available:\n"
         + "*?help*: Displays this message\n"
-        + "*?newGame*: I'll start a game of connect 4 with you!\n"
+        + "*?newgame* (username): I'll start tracking a game of connect 4 between you and the person you named\n"
+        + "*?newgame*: I'll start a game of connect 4 with you!\n"
         + "*?play* (1-7): You play a move in the column you chose");
 }
 
-function newGame(msg) {
-    msg.channel.send("New game started with " + msg.author + "!");
+function newPlayerGame(msg, message) {
+    var p2 = getStringAfterSpace(message);
+    var users = client.users.array();
+    for(var i = 0; i < users.length; i++)
+    {
+        if(users[i].username.toLowerCase() === p2)
+        {
+            player2 = users[i].id;
+            p2 = users[i].username;
+            break;
+        }
+    }
+    if(!player2) {
+        msg.reply(p2 + " is not a user in this channel! Double check your spelling");
+        return;
+    }
+    
+    player1 = msg.author.id;
+    newGame(msg, msg.author.username, p2);
+}
+
+function newGame(msg, p1, p2) {
+    msg.channel.send("New game started between " + p1 + " and " + p2 + "!");
     resetBoard();
     displayBoard(msg);
+    nextPlayer = player1;
 }
 
 function resetBoard() {
@@ -95,6 +126,14 @@ function displayBoard(msg) {
 }
 
 function playMove(msg, message) {
+    if(msg.author.id !== player1 && msg.author.id !== player2) {
+        msg.reply("You are not one of the active players!");
+        return;
+    }
+    if(msg.author.id !== nextPlayer) {
+        msg.reply("It is not your turn!");
+        return;
+    }
     var columnString = getStringAfterSpace(message)
     var column = parseInt(columnString);
     if(!(column >= 1 && column <= 7)) {
@@ -107,9 +146,12 @@ function playMove(msg, message) {
         msg.reply((column+1) + " is already full! Pick an available column");
         return;
     }
-    board[row][column] = red;
     
-    if(detectWin(red)) {
+    var color = getCurrentColor(msg.author.id);
+    
+    board[row][column] = color;
+    
+    if(detectWin(color)) {
         displayBoard(msg);
         msg.reply("You won! Congrats!\nResetting the board now.");
         resetBoard();
@@ -123,20 +165,13 @@ function playMove(msg, message) {
         return;
     }
     
-    playRandomMove(black);
+    if(!player2) {
+        playForAI(msg);
+        return;
+    }
+    
     displayBoard(msg);
-    
-    if(detectWin(black)) {
-        msg.reply("You lost!\nResetting the board now.");
-        resetBoard();
-        return;
-    }
-    
-    if(boardFull()) {
-        msg.channel.send("The board is full without a winner. Tie game!\nResetting the board now");
-        resetBoard();
-        return;
-    }
+    setNextPlayer(msg.author.id);
 }
 
 function getStringAfterSpace(string) {
@@ -155,6 +190,12 @@ function getAvailableRowInColumn(column) {
             return i-1;
     }
     return 5;
+}
+
+function getCurrentColor(playerId) {
+    if(player1 === playerId)
+        return red;
+    return black;
 }
 
 function detectWin(color) {
@@ -200,6 +241,23 @@ function boardFull() {
     return true;
 }
 
+function playForAI(msg) {
+    playRandomMove(black);
+    displayBoard(msg);
+    
+    if(detectWin(black)) {
+        msg.reply("You lost!\nResetting the board now.");
+        resetBoard();
+        return;
+    }
+    
+    if(boardFull()) {
+        msg.channel.send("The board is full without a winner. Tie game!\nResetting the board now");
+        resetBoard();
+        return;
+    }
+}
+
 function playRandomMove(color) {
     var possibleMoves = [];
     for(var i = 0; i < 7; i++) {
@@ -214,6 +272,13 @@ function playRandomMove(color) {
 
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function setNextPlayer(playerId) {
+    if(player1 === playerId)
+        nextPlayer = player2;
+    else
+        nextPlayer = player1;
 }
 
 var key = fs.readFileSync("key.txt");
