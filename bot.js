@@ -10,6 +10,7 @@ var black = "⚫";
 var player1;
 var player2;
 var nextPlayer;
+var aiColor = black;
 
 var useDMs = false;
 
@@ -67,9 +68,17 @@ function reactToCommands(msg, message)
     }
     else if(message.startsWith("?newgame")) {
         useDMs = false;
+        aiColor = black;
         player1 = msg.author.id;
         player2 = null;
         newGame(msg, msg.author.username, "the AI");
+    }
+    else if(message.startsWith("?youstart")) {
+        useDMs = false;
+        aiColor = red;
+        player1 = null;
+        player2 = msg.author.id;
+        newGameAIStarts(msg, msg.author.username, "the AI");
     }
     else if(message.startsWith("?play ")) {
         playMove(msg, message);
@@ -85,6 +94,7 @@ function help(msg) {
         + "*?newgame (username)*: I'll start tracking a game of connect 4 between you and the person you named\n"
         + "*?newgamedm (username)*: Same as above, but it will work over DMs if you don't want to notify the whole channel\n"
         + "*?newgame*: I'll start a game of connect 4 with you!\n"
+        + "*?youstart*: I'll start a game with you and I'll play the first move\n"
         + "*?play (1-7)*: You play a move in the column you chose");
 }
 
@@ -119,6 +129,13 @@ function newGame(msg, p1, p2) {
     resetBoard();
     displayBoard(msg);
     nextPlayer = player1;
+}
+
+function newGameAIStarts(msg, p1, p2) {
+    msg.channel.send("New game started between " + p1 + " and " + p2 + "!");
+    resetBoard();
+    playForAI(msg);
+    nextPlayer = player2;
 }
 
 function resetBoard() {
@@ -200,7 +217,7 @@ function playMove(msg, message) {
         return;
     }
     
-    if(!player2) {
+    if(!player1 || !player2) {
         playForAI(msg);
         return;
     }
@@ -287,10 +304,10 @@ function boardFull() {
 }
 
 function playForAI(msg) {
-    playRandomMove(black);
+    playRandomMove(aiColor);
     displayBoard(msg);
     
-    if(detectWin(black)) {
+    if(detectWin(aiColor)) {
         msg.reply("You lost!\nResetting the board now.");
         resetBoard();
         return;
@@ -305,7 +322,7 @@ function playForAI(msg) {
 
 function playRandomMove(color) {
     var possibleMoves = getPossibleMoves();
-    var winningMoves = getWinningMoves(possibleMoves);
+    var winningMoves = getWinningMoves(possibleMoves, color);
     if(winningMoves.length > 0) {
         var column = winningMoves[getRandomInt(0, winningMoves.length-1)];
         var row = getAvailableRowInColumn(column);
@@ -313,7 +330,7 @@ function playRandomMove(color) {
         return;
     }
     
-    var blockingMoves = getBlockingMoves(possibleMoves);
+    var blockingMoves = getWinningMoves(possibleMoves, getInverseColor(color));
     if(blockingMoves.length > 0)
         possibleMoves = blockingMoves;
     
@@ -331,30 +348,23 @@ function getPossibleMoves() {
     return possibleMoves;
 }
 
-function getWinningMoves(possibleMoves) {
+function getInverseColor(color) {
+    if(color === black)
+        return red;
+    return black;
+}
+
+function getWinningMoves(possibleMoves, color) {
     var winningMoves = [];
     for(var i = 0; i < possibleMoves.length; i++) {
         var backupBoard = hardCopy2DArray(board);
-        board[getAvailableRowInColumn(possibleMoves[i])][possibleMoves[i]] = black;
-        if(detectWin(black)) {
+        board[getAvailableRowInColumn(possibleMoves[i])][possibleMoves[i]] = color;
+        if(detectWin(color)) {
             winningMoves.push(possibleMoves[i]);
         }
         board = hardCopy2DArray(backupBoard);
     }
     return winningMoves;
-}
-
-function getBlockingMoves(possibleMoves) {
-    var blockingMoves = [];
-    for(var i = 0; i < possibleMoves.length; i++) {
-        var backupBoard = hardCopy2DArray(board);
-        board[getAvailableRowInColumn(possibleMoves[i])][possibleMoves[i]] = red;
-        if(detectWin(red)) {
-            blockingMoves.push(possibleMoves[i]);
-        }
-        board = hardCopy2DArray(backupBoard);
-    }
-    return blockingMoves;
 }
 
 function hardCopy2DArray(sourceArray) {
