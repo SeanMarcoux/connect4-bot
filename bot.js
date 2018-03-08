@@ -11,6 +11,8 @@ var player1;
 var player2;
 var nextPlayer;
 
+var useDMs = false;
+
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
     client.user.setActivity("Connect 4");
@@ -56,10 +58,17 @@ function reactToCommands(msg, message)
         help(msg);
     }
     else if(message.startsWith("?newgame ")) {
+        useDMs = false;
+        newPlayerGame(msg, message);
+    }
+    else if(message.startsWith("?newgamedm ")) {
+        useDMs = true;
         newPlayerGame(msg, message);
     }
     else if(message.startsWith("?newgame")) {
+        useDMs = false;
         player1 = msg.author.id;
+        player2 = null;
         newGame(msg, msg.author.username, "the AI");
     }
     else if(message.startsWith("?play ")) {
@@ -73,9 +82,10 @@ function reactToCommands(msg, message)
 function help(msg) {
     msg.reply("The following commands are available:\n"
         + "*?help*: Displays this message\n"
-        + "*?newgame* (username): I'll start tracking a game of connect 4 between you and the person you named\n"
+        + "*?newgame (username)*: I'll start tracking a game of connect 4 between you and the person you named\n"
+        + "*?newgamedm (username)*: Same as above, but it will work over DMs if you don't want to notify the whole channel\n"
         + "*?newgame*: I'll start a game of connect 4 with you!\n"
-        + "*?play* (1-7): You play a move in the column you chose");
+        + "*?play (1-7)*: You play a move in the column you chose");
 }
 
 function newPlayerGame(msg, message) {
@@ -96,6 +106,11 @@ function newPlayerGame(msg, message) {
     }
     
     player1 = msg.author.id;
+    nextPlayer = player1;
+    if(useDMs) {
+        dmUser(player2, "You have been challenged to a game of connect 4 by " + msg.author.username);
+    }
+    
     newGame(msg, msg.author.username, p2);
 }
 
@@ -122,7 +137,28 @@ function displayBoard(msg) {
         }
         boardMessage += "\n";
     }
-    msg.channel.send(boardMessage);
+    if(useDMs)
+    {
+        dmUser(nextPlayer, boardMessage);
+        dmUser(getNextPlayer(), boardMessage);
+    }
+    else
+        msg.channel.send(boardMessage);
+}
+
+function getNextPlayer() {
+    if(nextPlayer === player1)
+        return player2;
+    else
+        return player1;
+}
+
+function dmUser(userId, message) {
+    var user = client.users.find('id', userId.toString());//client.users[userId];
+    console.log("Sending the following dm to " + user.username + ": " + message);
+    user.createDM().then(function(dm) {
+        dm.send(message);
+    });
 }
 
 function playMove(msg, message) {
@@ -134,7 +170,7 @@ function playMove(msg, message) {
         msg.reply("It is not your turn!");
         return;
     }
-    var columnString = getStringAfterSpace(message)
+    var columnString = getStringAfterSpace(message);
     var column = parseInt(columnString);
     if(!(column >= 1 && column <= 7)) {
         msg.reply(columnString + " is an illegal move! Must be a number between 1 and 7.");
@@ -152,8 +188,7 @@ function playMove(msg, message) {
     board[row][column] = color;
     
     if(detectWin(color)) {
-        displayBoard(msg);
-        msg.reply("You won! Congrats!\nResetting the board now.");
+        notifyWin(msg);
         resetBoard();
         return;
     }
@@ -171,7 +206,17 @@ function playMove(msg, message) {
     }
     
     displayBoard(msg);
-    setNextPlayer(msg.author.id);
+    setNextPlayer();
+}
+
+function notifyWin(msg) {
+    displayBoard(msg);
+    if(useDMs) {
+        dmUser(nextPlayer, "You won! Congrats!\nResetting the board now.");
+        dmUser(getNextPlayer(), "You lost!\nResetting the board now.");
+    }
+    else
+        msg.reply("You won! Congrats!\nResetting the board now.");
 }
 
 function getStringAfterSpace(string) {
@@ -274,11 +319,8 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function setNextPlayer(playerId) {
-    if(player1 === playerId)
-        nextPlayer = player2;
-    else
-        nextPlayer = player1;
+function setNextPlayer() {
+    nextPlayer = getNextPlayer();
 }
 
 var key = fs.readFileSync("key.txt");
