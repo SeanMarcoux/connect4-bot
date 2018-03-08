@@ -304,15 +304,69 @@ function playForAI(msg) {
 }
 
 function playRandomMove(color) {
+    var possibleMoves = getPossibleMoves();
+    var winningMoves = getWinningMoves(possibleMoves);
+    if(winningMoves.length > 0) {
+        var column = winningMoves[getRandomInt(0, winningMoves.length-1)];
+        var row = getAvailableRowInColumn(column);
+        board[row][column] = color;
+        return;
+    }
+    
+    var blockingMoves = getBlockingMoves(possibleMoves);
+    if(blockingMoves.length > 0)
+        possibleMoves = blockingMoves;
+    
+    var column = possibleMoves[getRandomInt(0, possibleMoves.length-1)];
+    var row = getAvailableRowInColumn(column);
+    board[row][column] = color;
+}
+
+function getPossibleMoves() {
     var possibleMoves = [];
     for(var i = 0; i < 7; i++) {
         if(getAvailableRowInColumn(i) > -1)
             possibleMoves.push(i);
     }
-    
-    var column = possibleMoves[getRandomInt(0, possibleMoves.length-1)];
-    var row = getAvailableRowInColumn(column);
-    board[row][column] = color;
+    return possibleMoves;
+}
+
+function getWinningMoves(possibleMoves) {
+    var winningMoves = [];
+    for(var i = 0; i < possibleMoves.length; i++) {
+        var backupBoard = hardCopy2DArray(board);
+        board[getAvailableRowInColumn(possibleMoves[i])][possibleMoves[i]] = black;
+        if(detectWin(black)) {
+            winningMoves.push(possibleMoves[i]);
+        }
+        board = hardCopy2DArray(backupBoard);
+    }
+    return winningMoves;
+}
+
+function getBlockingMoves(possibleMoves) {
+    var blockingMoves = [];
+    for(var i = 0; i < possibleMoves.length; i++) {
+        var backupBoard = hardCopy2DArray(board);
+        board[getAvailableRowInColumn(possibleMoves[i])][possibleMoves[i]] = red;
+        if(detectWin(red)) {
+            blockingMoves.push(possibleMoves[i]);
+        }
+        board = hardCopy2DArray(backupBoard);
+    }
+    return blockingMoves;
+}
+
+function hardCopy2DArray(sourceArray) {
+    var newArray = [];
+    for(var i = 0; i < sourceArray.length; i++) {
+        var row = [];
+        for(var j = 0; j < sourceArray[i].length; j++) {
+            row.push(sourceArray[i][j]);
+        }
+        newArray.push(row);
+    }
+    return newArray;
 }
 
 function getRandomInt(min, max) {
